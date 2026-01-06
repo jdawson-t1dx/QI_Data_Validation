@@ -1,0 +1,33 @@
+Wanted to note the difference between the Draft and Final Product. 
+
+Draft version is a working doccument. However this version does not look for most recent entry associated with ins_regimen, cgm_binary within the reporting period (year)
+
+You can see this change with the newly added section (coverage_latest):  
+
+def coverage_latest(df, code, recent_encs_df, condition=None, days=365):
+    df = df.copy()
+    df["effective_date"] = pd.to_datetime(df["effective_date"], errors="coerce")
+    recent_encs_df["encounter_date"] = pd.to_datetime(recent_encs_df["encounter_date"], errors="coerce")
+
+    # Filter to code and merge with encounters
+    df_code = df[df["code"] == code]
+    merged = df_code.merge(recent_encs_df[["patient_id", "encounter_date"]], on="patient_id")
+    merged["days_diff"] = (merged["encounter_date"] - merged["effective_date"]).dt.days
+    merged = merged[(merged["days_diff"] >= 0) & (merged["days_diff"] <= days)]
+
+    # Sort and keep latest per patient
+    merged.sort_values(["patient_id", "effective_date"], inplace=True)
+    latest = merged.groupby("patient_id").tail(1)
+    if condition is not None:
+        try:
+            latest["value"] = pd.to_numeric(latest["value"])
+        except Exception:
+            pass
+        latest = latest[condition(latest["value"])]
+
+    return latest["patient_id"].nunique()
+
+---------------------------------
+Code was validted using UCDavis and UTAH R scorecards for comparison
+
+
